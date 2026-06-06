@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from bs4 import BeautifulSoup, Tag
 
-from ph_cli.handlers.requests import session
+from pornhub_cli.handlers.requests import session
 
 
 def filter_ad(video: Tag) -> bool:

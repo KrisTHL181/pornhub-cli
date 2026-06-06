@@ -6,7 +6,7 @@ from curl_cffi import requests as _requests
 
 def get_user_agent() -> str:
     """Return the configured User-Agent override, or None if not set."""
-    from ph_cli.config import config_manager
+    from pornhub_cli.config import config_manager
 
     config = config_manager.load_config()
     return config.get("user_agent", "")

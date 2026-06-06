@@ -16,11 +16,16 @@ def main() -> None:
 
 
 @main.group()
-def auth() -> None:
-    """Manage authentication."""
+def search() -> None:
+    """Search for videos matching a query."""
 
+@search.command()
+@click.argument("query", type=str)
+@click.option("--page", "-p", default=1, help="Page number to fetch.")
+def search_videos(query: str, page: int) -> None:
+    """Search for videos matching the query."""
+    from pornhub_cli.handlers.search import search
 
-@auth.command("status")
-def auth_status() -> None:
-    """Show authentication status."""
-    click.echo("Not yet implemented.")
+    recommendations, video_list = search(query, page)
+    click.echo(f"Recommendations: {recommendations}")
+    click.echo(f"Videos: {video_list}")
