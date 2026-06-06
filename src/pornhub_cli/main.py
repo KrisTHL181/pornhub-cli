@@ -4,6 +4,7 @@ import sys
 import tempfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
+from queue import Queue
 
 import click
 
@@ -81,22 +82,30 @@ def get_video_info(view_key: str) -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_path = Path(temp_dir)
 
+        # Position pool — each worker thread occupies one tqdm row
+        max_workers = 8
+        position_pool = Queue(maxsize=max_workers)
+        for i in range(max_workers):
+            position_pool.put(i)
+
         def download_segment(idx, url_info, view_key, quality, temp_path):
             url = url_info["url"]
             duration = url_info["duration"]
-
+            pos = position_pool.get()
             try:
-                data = download(url)
+                data = download(url, desc=f"Seg {idx:>3}", position=pos)
                 filename = temp_path / f"{view_key}_{quality}_{duration}_{idx}.ts"
                 filename.write_bytes(data)
                 return idx, True, None
             except Exception as e:
                 return idx, False, str(e)
+            finally:
+                position_pool.put(pos)
 
         failed_segments = []
 
-        # Parallel download
-        with ThreadPoolExecutor(max_workers=8) as executor:
+        # Parallel download — per-segment tqdm bars show progress and speed
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = {
                 executor.submit(download_segment, idx, url_info, view_key, quality, temp_path): idx
                 for idx, url_info in enumerate(urls, 1)
@@ -104,20 +113,24 @@ def get_video_info(view_key: str) -> None:
 
             for future in as_completed(futures):
                 idx, success, error = future.result()
-                if success:
-                    click.echo(f"  Segment {idx} completed ✓\r", nl=False)
-                else:
+                if not success:
                     failed_segments.append((idx, error))
 
-        # Retry failed segments
-        for idx, error in failed_segments:
-            click.echo(f"  Segment {idx} failed with error: {error}. Retrying...")
-            url_info = urls[idx - 1]
-            _, success, error = download_segment(idx, url_info, view_key, quality, temp_path)
-            if success:
-                click.echo(f"  Segment {idx} completed ✓\r", nl=False)
-            else:
-                click.echo(f"  Segment {idx} failed again with error: {error}. Skipping.")
+        # Retry failed segments with freshly-fetched URLs
+        if failed_segments:
+            click.echo("Re-fetching segment URLs for retry...")
+            fresh_urls = get_video_urls_for_quality(qualities, quality)
+
+            for idx, error in failed_segments:
+                if idx - 1 < len(fresh_urls):
+                    url_info = fresh_urls[idx - 1]
+                else:
+                    click.echo(f"Segment {idx} — fresh URL list has no index {idx}. Skipping.")
+                    continue
+
+                _, success, error = download_segment(idx, url_info, view_key, quality, temp_path)
+                if not success:
+                    click.echo(f"Segment {idx} failed again with error: {error}. Skipping.")
 
         click.echo("✓ Download complete.")
 

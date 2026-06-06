@@ -82,13 +82,29 @@ def fetch_page_html(url: str) -> str:
     return session.get(url).text
 
 
-def download(url: str) -> bytes:
+def download(url: str, desc: str | None = None, position: int | None = None) -> bytes:
+    """Download binary content with a per-segment progress bar and speed display."""
+    from tqdm import tqdm
+
     url = url.replace("http://", "https://")
     response = session.get(url, stream=True)
     response.raise_for_status()
+    total = int(response.headers.get("content-length", 0))
     chunk_size = 8192
     data = bytearray()
-    for chunk in response.iter_content(chunk_size=chunk_size):
-        if chunk:
-            data.extend(chunk)
+
+    with tqdm(
+        total=total if total > 0 else None,
+        unit="B",
+        unit_scale=True,
+        unit_divisor=1024,
+        desc=desc,
+        position=position,
+        leave=False,
+        bar_format="{desc}: {percentage:3.0f}%|{bar:16}| {rate_fmt}",
+    ) as bar:
+        for chunk in response.iter_content(chunk_size=chunk_size):
+            if chunk:
+                data.extend(chunk)
+                bar.update(len(chunk))
     return bytes(data)

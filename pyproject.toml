@@ -13,6 +13,7 @@ dependencies = [
     "curl-cffi",
     "ffmpeg-python",
     "m3u8",
+    "tqdm",
 ]
 
 [project.scripts]
