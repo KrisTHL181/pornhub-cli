@@ -1,0 +1,12 @@
+*.json
+*.png
+__pycache__
+
+(draft)*
+downloads
+content_metrics
+.cache
+
+*egg-info
+.claude
+.swp
