@@ -3,7 +3,6 @@ import re
 from curl_cffi import CurlHttpVersion
 from curl_cffi import requests as _requests
 
-
 def get_user_agent() -> str:
     """Return the configured User-Agent override, or None if not set."""
     from pornhub_cli.config import config_manager
@@ -81,3 +80,15 @@ def reload_session() -> None:
 def fetch_page_html(url: str) -> str:
     url = url.replace("http://", "https://")
     return session.get(url).text
+
+
+def download(url: str) -> bytes:
+    url = url.replace("http://", "https://")
+    response = session.get(url, stream=True)
+    response.raise_for_status()
+    chunk_size = 8192
+    data = bytearray()
+    for chunk in response.iter_content(chunk_size=chunk_size):
+        if chunk:
+            data.extend(chunk)
+    return bytes(data)
