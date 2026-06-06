@@ -7,7 +7,12 @@ import re
 
 import m3u8
 
-from pornhub_cli.handlers.requests import session
+from pornhub_cli.handlers.requests import M3U8HttpClient, session
+
+# Use our impersonated, header-rich session for m3u8 playlist fetches
+# instead of the default urllib client (which sends no Referer / Origin
+# and can trigger CDN throttling even for tiny playlist files).
+_m3u8_http = M3U8HttpClient(session)
 
 
 def get_video_data(view_key: str) -> dict[str, str]:
@@ -26,11 +31,12 @@ def get_video_data(view_key: str) -> dict[str, str]:
     video_info = {"title": video_title, "duration": video_duration, "media_definitions": media_definitions}
     return video_info
 
+
 def parse_m3u8_playlist(m3u8_url: str) -> list[dict[str, str]]:
-    master = m3u8.load(m3u8_url)
+    master = m3u8.load(m3u8_url, http_client=_m3u8_http)
     base_url = m3u8_url.split("master.m3u8")[0]
 
-    playlist = m3u8.load(base_url + master.playlists[0].uri)
+    playlist = m3u8.load(base_url + master.playlists[0].uri, http_client=_m3u8_http)
 
     video_urls = []
     for segment in playlist.segments:
