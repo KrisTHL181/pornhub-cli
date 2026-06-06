@@ -11,10 +11,8 @@ dependencies = [
     "beautifulsoup4",
     "click",
     "curl-cffi",
-    "lxml",
-    "cssselect",
-    "pyyaml",
-    "rich",
+    "ffmpeg-python",
+    "m3u8",
 ]
 
 [project.scripts]
