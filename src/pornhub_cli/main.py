@@ -38,7 +38,7 @@ def search_videos(query: str, page: int) -> None:
     click.echo(f"Found {len(video_list)} videos:")
     for video in video_list:
         click.echo(
-            f" - {video['title']} by {video['author']} — {convert_time_unit(video['duration'])}, {video['views']} views, added {video['added']} (view key: {video['view_key']})"
+            f" - {video['title']} by {video['author']} — {video['duration']}, {video['views']} views, added {video['added']} (view key: {video['view_key']})"
         )
 
 
@@ -51,28 +51,31 @@ def video() -> None:
 @click.argument("view_key", type=str)
 def get_video_info(view_key: str) -> None:
     """Get video information and media URLs for a given view key."""
-    from pornhub_cli.handlers.video import get_video_data, extract_video_urls
+    from pornhub_cli.handlers.video import get_video_data, list_qualities, get_video_urls_for_quality
     from pornhub_cli.handlers.requests import download
 
     video_data = get_video_data(view_key)
     click.echo(f"Title: {video_data['title']}")
     click.echo(f"Duration: {convert_time_unit(video_data['duration'])}")
-    click.echo("Media definitions:")
-    media_definitions = extract_video_urls(video_data)
-    for quality, _ in media_definitions:
-        click.echo(f" - {quality}p")
+    click.echo("Available qualities:")
+    qualities = list_qualities(video_data)
+    quality_labels = [q["quality"] for q in qualities]
+    for label in quality_labels:
+        click.echo(f" - {label}p")
     quality_choice = click.prompt(
         "Which quality do you want to download?",
-        type=click.Choice([q for q, _ in media_definitions]),
+        type=click.Choice(quality_labels),
         show_choices=True,
     )
-    selected_quality = next((quality, urls) for quality, urls in media_definitions if quality == quality_choice)
 
-    if not selected_quality:
-        click.echo(f"Quality '{quality_choice}' not found.", err=True)
+    # Parse the m3u8 playlist only for the user-selected quality
+    click.echo(f"Fetching {quality_choice}p video segments...")
+    urls = get_video_urls_for_quality(qualities, quality_choice)
+    if not urls:
+        click.echo(f"No segments found for quality '{quality_choice}'.", err=True)
         sys.exit(1)
 
-    quality, urls = selected_quality
+    quality = quality_choice
     click.echo(f"Downloading {quality}p video...")
 
     with tempfile.TemporaryDirectory() as temp_dir:

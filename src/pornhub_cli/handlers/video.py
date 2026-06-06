@@ -37,13 +37,24 @@ def parse_m3u8_playlist(m3u8_url: str) -> list[dict[str, str]]:
         video_urls.append({"url": base_url + segment.uri, "duration": segment.duration})
     return video_urls
 
-def extract_video_urls(video_data: dict[str, str]) -> list[dict[str, str]]:
+def list_qualities(video_data: dict[str, str]) -> list[dict[str, str]]:
+    """Return available quality labels and their m3u8 URLs without parsing the playlists."""
     media_definitions = video_data.get("media_definitions", [])
-    video_urls = []
-    media_definitions.pop(-1) # the last one is a loopback to the master playlist, which we don't need
+    # the last one is a loopback to the master playlist, which we don't need
+    if media_definitions:
+        media_definitions = media_definitions[:-1]
 
+    qualities = []
     for media in media_definitions:
         m3u8_url = media.get("videoUrl")
         if m3u8_url:
-            video_urls.append([media.get("quality"), parse_m3u8_playlist(m3u8_url)])
-    return video_urls
+            qualities.append({"quality": media.get("quality"), "m3u8_url": m3u8_url})
+    return qualities
+
+
+def get_video_urls_for_quality(qualities: list[dict[str, str]], target_quality: str) -> list[dict[str, str]]:
+    """Parse the m3u8 playlist for a specific quality and return segment URLs."""
+    for entry in qualities:
+        if entry["quality"] == target_quality:
+            return parse_m3u8_playlist(entry["m3u8_url"])
+    return []
